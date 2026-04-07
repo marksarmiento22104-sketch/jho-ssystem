@@ -1,0 +1,7 @@
+/vendor/
+/store/vendor/
+/store/node_modules/
+/store-frontend/node_modules/
+/store/.env
+/store/storage/logs/*.log
+/store/bootstrap/cache/*.php
