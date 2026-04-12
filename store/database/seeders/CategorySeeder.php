@@ -10,12 +10,16 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            ['name' => 'Electronics',       'description' => 'Electronic devices and accessories',    'is_active' => true],
-            ['name' => 'Clothing',          'description' => 'Fashion and apparel items',               'is_active' => true],
-            ['name' => 'Food & Beverages',  'description' => 'Snacks, drinks, and food items',          'is_active' => true],
-            ['name' => 'Home & Garden',     'description' => 'Home improvement and garden supplies',    'is_active' => true],
-            ['name' => 'Sports & Outdoors', 'description' => 'Sporting goods and outdoor equipment',    'is_active' => true],
-            ['name' => 'Books & Stationery','description' => 'Books, office supplies, and stationery',  'is_active' => true],
+            ['name' => 'Condiments',      'description' => 'Pepper, salt, mayonnaise',                                                          'is_active' => true],
+            ['name' => 'Can goods',       'description' => 'Century tuna, san marino',                                                           'is_active' => true],
+            ['name' => 'Fresh foods',     'description' => 'fruits, vegetables, meat, poultry, seafood',                                         'is_active' => true],
+            ['name' => 'Bakery products', 'description' => 'Bread, cakes, pastries, cookies, biscuits',                                          'is_active' => true],
+            ['name' => 'Dairy products',  'description' => 'Milk, cheese, yogurt, butter, ice cream',                                            'is_active' => true],
+            ['name' => 'Frozen foods',    'description' => 'Fish, hotdogs, nuggets',                                                             'is_active' => true],
+            ['name' => 'Daily necessities','description' => 'Toothbrush, soap, shampoo, napkin',                                                 'is_active' => true],
+            ['name' => 'Others',          'description' => 'Other things that we sell',                                                          'is_active' => true],
+            ['name' => 'Instant noodles', 'description' => 'Pre-cooked and dried noodle block, usually made from wheat flour',                   'is_active' => true],
+            ['name' => 'Coffee',          'description' => 'Instant coffees, cold coffee',                                                       'is_active' => true],
         ];
 
         foreach ($categories as $category) {
