@@ -12,6 +12,12 @@ class OrderSeeder extends Seeder
 {
     public function run(): void
     {
+        // Skip if orders already exist — prevents duplicate data on redeploy
+        if (Order::count() > 0) {
+            $this->command->info('Orders already seeded. Skipping.');
+            return;
+        }
+
         $products = Product::all();
         $customerNames = [
             'Juan Dela Cruz', 'Maria Santos', 'Jose Reyes', 'Ana Garcia',

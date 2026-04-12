@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Product;
 use App\Models\Category;
-use Carbon\Carbon;
 
 class ProductSeeder extends Seeder
 {
@@ -59,19 +58,20 @@ class ProductSeeder extends Seeder
 
         foreach ($products as $productData) {
             $category = $categories->where('name', $productData['category'])->first();
-            
+
             if ($category) {
-                Product::create([
-                    'name' => $productData['name'],
-                    'description' => 'High quality ' . strtolower($productData['name']),
-                    'price' => $productData['price'],
-                    'stock' => $productData['stock'],
-                    'category_id' => $category->id,
-                    'sku' => $productData['sku'],
-                    'is_active' => true,
-                    'created_at' => Carbon::now()->subMonths(rand(1, 5)),
-                    'updated_at' => Carbon::now()->subMonths(rand(1, 5)),
-                ]);
+                Product::firstOrCreate(
+                    ['sku' => $productData['sku']],
+                    [
+                        'name'         => $productData['name'],
+                        'description'  => 'High quality ' . strtolower($productData['name']),
+                        'price'        => $productData['price'],
+                        'stock'        => $productData['stock'],
+                        'reorder_point'=> 10,
+                        'category_id'  => $category->id,
+                        'is_active'    => true,
+                    ]
+                );
             }
         }
     }
