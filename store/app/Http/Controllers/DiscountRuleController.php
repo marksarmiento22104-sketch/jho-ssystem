@@ -28,10 +28,15 @@ class DiscountRuleController extends Controller
             'type' => 'required|in:percentage,fixed',
             'value' => 'required|numeric|min:0',
             'min_purchase' => 'nullable|numeric|min:0',
+            'max_discount_amount' => 'nullable|numeric|min:0',
+            'max_percentage' => 'nullable|integer|min:0|max:100',
+            'usage_limit' => 'nullable|integer|min:0',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'is_active' => 'boolean',
             'applicable_to' => 'nullable|array',
+            'excluded_product_ids' => 'nullable|array',
+            'requires_approval' => 'boolean',
         ]);
 
         $rule = DiscountRule::create($request->all());
@@ -60,10 +65,15 @@ class DiscountRuleController extends Controller
             'type' => 'in:percentage,fixed',
             'value' => 'numeric|min:0',
             'min_purchase' => 'nullable|numeric|min:0',
+            'max_discount_amount' => 'nullable|numeric|min:0',
+            'max_percentage' => 'nullable|integer|min:0|max:100',
+            'usage_limit' => 'nullable|integer|min:0',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'is_active' => 'boolean',
             'applicable_to' => 'nullable|array',
+            'excluded_product_ids' => 'nullable|array',
+            'requires_approval' => 'boolean',
         ]);
 
         $old = $rule->toArray();

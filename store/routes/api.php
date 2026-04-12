@@ -12,6 +12,8 @@ use App\Http\Controllers\BusinessSettingController;
 use App\Http\Controllers\DiscountRuleController;
 use App\Http\Controllers\SalesTransactionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\InventoryLogController;
+use App\Http\Controllers\PriceHistoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('products/search-barcode', [ProductController::class, 'searchByBarcode']);
     Route::post('orders', [OrderController::class, 'store']);
     Route::get('orders', [OrderController::class, 'index']);
+    Route::put('orders/{id}/void', [OrderController::class, 'void']);
     
     // Activity logs (filtered by role)
     Route::get('activity-logs', [ActivityLogController::class, 'index']);
@@ -60,6 +63,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('sales-transactions', [SalesTransactionController::class, 'index']);
     Route::post('sales-transactions', [SalesTransactionController::class, 'store']);
     Route::get('sales-transactions/{id}', [SalesTransactionController::class, 'show']);
+    
+    // Inventory logs (both admin and staff can view their product logs)
+    Route::get('products/{productId}/inventory-logs', [InventoryLogController::class, 'index']);
+    
+    // Price history (both admin and staff can view)
+    Route::get('products/{productId}/price-history', [PriceHistoryController::class, 'index']);
     
     // Discount rules (read)
     Route::get('discount-rules', [DiscountRuleController::class, 'index']);
@@ -87,6 +96,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Damaged items approval
         Route::put('damaged-items/{id}/approve', [DamagedItemController::class, 'approve']);
         Route::put('damaged-items/{id}/reject', [DamagedItemController::class, 'reject']);
+        
+        // Void sales transactions
+        Route::put('sales-transactions/{id}/void', [SalesTransactionController::class, 'void']);
+        
+        // All inventory logs (admin only)
+        Route::get('inventory-logs', [InventoryLogController::class, 'all']);
         
         // Business settings
         Route::post('business-settings', [BusinessSettingController::class, 'update']);

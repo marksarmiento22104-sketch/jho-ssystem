@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { FaPlus, FaTrashAlt, FaShoppingCart, FaBoxOpen, FaTimes, FaBarcode } from "react-icons/fa";
+import { FaPlus, FaTrashAlt, FaShoppingCart, FaBoxOpen, FaTimes, FaBarcode, FaBan, FaHistory } from "react-icons/fa";
 import axios from "../../utils/axios";
 import { toast } from "react-hot-toast";
+import useKeyboardShortcuts from "../../utils/useKeyboardShortcuts";
+import KeyboardShortcutsHelp from "../../components/KeyboardShortcutsHelp";
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -27,10 +29,19 @@ export default function POS() {
   const [discountRules, setDiscountRules] = useState([]);
   const quantityRefs = useRef([]);
 
+  // Void order state
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidTarget, setVoidTarget] = useState(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidProcessing, setVoidProcessing] = useState(false);
+  const [showRecentOrders, setShowRecentOrders] = useState(false);
+
   useEffect(() => {
     fetchProducts();
     fetchCategories();
     fetchDiscountRules();
+    fetchRecentOrders();
 
     // Set up real-time polling for products every 5 seconds
     const productInterval = setInterval(() => {
@@ -77,6 +88,29 @@ export default function POS() {
       setFocusedCartIndex(cart.length - 1);
     }
   }, [cart.length, focusedCartIndex]);
+
+  // POS Keyboard shortcuts
+  const searchInputRef = useRef(null);
+
+  const posShortcuts = [
+    { key: "Enter", ctrl: true, handler: () => { if (cart.length > 0 && !showPaymentModal) handleCheckout(); }, description: "Open checkout", allowInInput: true },
+    { key: "Escape", handler: () => { if (showPaymentModal) setShowPaymentModal(false); }, description: "Close payment modal" },
+    { key: "Delete", ctrl: true, handler: () => { if (cart.length > 0) { setCart([]); setDiscount({ type: "none", value: 0, category: "" }); toast.success("Cart cleared"); } }, description: "Clear cart" },
+    { key: "f", ctrl: true, handler: () => { searchInputRef.current?.focus(); }, description: "Focus product search" },
+    { key: "b", ctrl: true, handler: () => { barcodeInputRef.current?.focus(); }, description: "Focus barcode scanner" },
+  ];
+
+  useKeyboardShortcuts(posShortcuts, true);
+
+  const posShortcutsList = [
+    { keys: "Ctrl + Enter", description: "Open checkout" },
+    { keys: "Ctrl + Delete", description: "Clear cart" },
+    { keys: "Ctrl + F", description: "Focus product search" },
+    { keys: "Ctrl + B", description: "Focus barcode scanner" },
+    { keys: "↑ / ↓", description: "Navigate cart items" },
+    { keys: "Escape", description: "Close modal" },
+    { keys: "F1", description: "Toggle shortcuts help" },
+  ];
 
   const fetchProducts = async (showLoading = true) => {
     try {
@@ -165,6 +199,48 @@ export default function POS() {
     }
   };
 
+  const fetchRecentOrders = async () => {
+    try {
+      const response = await axios.get("/api/orders", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      // Show only today's orders, most recent first
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayOrders = response.data
+        .filter(o => new Date(o.created_at) >= today)
+        .slice(0, 20);
+      setRecentOrders(todayOrders);
+    } catch (error) {
+      console.error("Error fetching recent orders:", error);
+    }
+  };
+
+  const handleVoidOrder = async () => {
+    if (!voidTarget || !voidReason.trim()) return;
+
+    try {
+      setVoidProcessing(true);
+      await axios.put(`/api/orders/${voidTarget.id}/void`, {
+        void_reason: voidReason,
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+
+      toast.success("Order voided successfully! Stock has been restored.");
+      setShowVoidModal(false);
+      setVoidTarget(null);
+      setVoidReason("");
+      fetchRecentOrders();
+      fetchProducts(false);
+    } catch (error) {
+      const msg = error.response?.data?.message || "Failed to void order";
+      toast.error(msg);
+    } finally {
+      setVoidProcessing(false);
+    }
+  };
+
   const isDiscountActive = (category) => {
     // Try exact match first
     let rule = discountRules.find(r => r.name === category);
@@ -178,8 +254,36 @@ export default function POS() {
     }
     
     // If no rule exists, default to active (available)
-    // Only return false if rule exists AND is_active is explicitly false
-    return rule ? rule.is_active : true;
+    if (!rule) return true;
+    
+    // Check if rule is active
+    if (!rule.is_active) return false;
+    
+    // Check usage limit
+    if (rule.usage_limit && rule.usage_count >= rule.usage_limit) return false;
+    
+    return true;
+  };
+
+  // Get the matching discount rule for current discount category
+  const getActiveDiscountRule = () => {
+    if (discount.type === "none" || !discount.category) return null;
+    
+    let rule = discountRules.find(r => r.name === discount.category);
+    if (!rule) {
+      rule = discountRules.find(r => 
+        r.name.toLowerCase().includes(discount.category.toLowerCase()) || 
+        discount.category.toLowerCase().includes(r.name.toLowerCase())
+      );
+    }
+    return rule;
+  };
+
+  // Check if a product is excluded from the current discount
+  const isProductExcluded = (productId) => {
+    const rule = getActiveDiscountRule();
+    if (!rule || !rule.excluded_product_ids) return false;
+    return rule.excluded_product_ids.includes(productId);
   };
 
   const handleBarcodeSearch = async (e) => {
@@ -358,11 +462,44 @@ export default function POS() {
 
   const subtotal = cart.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
   
-  const discountAmount = discount.type === "percentage" 
-    ? (subtotal * parseFloat(discount.value || 0)) / 100 
-    : discount.type === "amount" 
-    ? parseFloat(discount.value || 0)
-    : 0;
+  // Calculate discount with restrictions applied
+  const calculateDiscountAmount = () => {
+    if (discount.type === "none") return 0;
+    
+    const rule = getActiveDiscountRule();
+    
+    // Calculate eligible subtotal (exclude excluded products)
+    let eligibleSubtotal = subtotal;
+    if (rule?.excluded_product_ids?.length > 0) {
+      eligibleSubtotal = cart
+        .filter(item => !rule.excluded_product_ids.includes(item.product_id))
+        .reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+    }
+    
+    let amount = 0;
+    let effectivePercentage = parseFloat(discount.value || 0);
+    
+    // Apply max_percentage cap
+    if (rule?.max_percentage && effectivePercentage > parseFloat(rule.max_percentage)) {
+      effectivePercentage = parseFloat(rule.max_percentage);
+    }
+    
+    if (discount.type === "percentage") {
+      amount = (eligibleSubtotal * effectivePercentage) / 100;
+    } else if (discount.type === "amount") {
+      amount = parseFloat(discount.value || 0);
+    }
+    
+    // Apply max_discount_amount cap
+    if (rule?.max_discount_amount && amount > parseFloat(rule.max_discount_amount)) {
+      amount = parseFloat(rule.max_discount_amount);
+    }
+    
+    return amount;
+  };
+  
+  const discountAmount = calculateDiscountAmount();
+  const excludedProductCount = cart.filter(item => isProductExcluded(item.product_id)).length;
   
   const totalAmount = Math.max(0, subtotal - discountAmount);
 
@@ -436,6 +573,7 @@ export default function POS() {
       
       // Fetch fresh data from server to ensure accuracy
       fetchProducts(false);
+      fetchRecentOrders();
       
     } catch (error) {
       console.error("Payment error:", error);
@@ -506,10 +644,86 @@ export default function POS() {
 
   return (
     <div className="p-4 md:p-8 bg-white min-h-screen text-gray-900">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-yellow-400 mb-2">Point of Sale</h2>
-        <p className="text-gray-600 text-sm">Select products and process transactions</p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-yellow-400 mb-2">Point of Sale</h2>
+          <p className="text-gray-600 text-sm">Select products and process transactions</p>
+        </div>
+        <button
+          onClick={() => { setShowRecentOrders(!showRecentOrders); if (!showRecentOrders) fetchRecentOrders(); }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            showRecentOrders
+              ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+              : "bg-white border border-gray-200 text-gray-600 hover:border-yellow-400/50 hover:text-gray-900"
+          }`}
+        >
+          <FaHistory /> Recent Orders
+        </button>
       </div>
+
+      {/* Recent Orders Panel */}
+      {showRecentOrders && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-2xl p-5 shadow-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <FaHistory className="text-yellow-400" /> Today's Orders
+          </h3>
+          {recentOrders.length === 0 ? (
+            <p className="text-gray-500 italic text-sm text-center py-4">No orders today</p>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {recentOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    order.is_voided
+                      ? "bg-red-50/50 border-red-200 opacity-70"
+                      : "bg-gray-50 border-gray-200 hover:border-yellow-400/30"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-sm font-bold ${order.is_voided ? "line-through text-gray-400" : "text-yellow-500"}`}>
+                        #{order.id}
+                      </span>
+                      <span className={`text-sm ${order.is_voided ? "line-through text-gray-400" : "text-gray-900"}`}>
+                        {order.customer_name || "Walk-in"}
+                      </span>
+                      {order.is_voided && (
+                        <span className="px-1.5 py-0.5 bg-red-500/20 text-red-600 text-[10px] font-bold rounded">VOIDED</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span>{order.items?.map(i => `${i.product?.name || 'Product'} (×${i.quantity})`).join(", ")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 ml-4">
+                    <span className={`text-sm font-bold ${order.is_voided ? "line-through text-gray-400" : "text-green-600"}`}>
+                      ₱{parseFloat(order.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    {!order.is_voided && (
+                      <button
+                        onClick={() => { setVoidTarget(order); setVoidReason(""); setShowVoidModal(true); }}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+                        title="Void Order"
+                      >
+                        <FaBan className="text-[10px]" /> Void
+                      </button>
+                    )}
+                    {order.is_voided && order.void_reason && (
+                      <span className="text-[10px] text-gray-400 max-w-[100px] truncate" title={order.void_reason}>
+                        {order.void_reason}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
@@ -541,8 +755,9 @@ export default function POS() {
 
             {/* Text Search */}
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Search products..."
+              placeholder="Search products... (Ctrl+F)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all"
@@ -645,23 +860,19 @@ export default function POS() {
                     <div className="flex items-center gap-2 bg-white rounded-lg px-2 py-1 border border-gray-200">
                       <button
                         onClick={() => handleDecreaseQuantity(item.product_id)}
-                        className="text-gray-600 hover:text-yellow-600 transition-colors px-2 py-1"
+                        className="text-gray-600 hover:text-yellow-600 transition-colors px-2 py-1 font-bold"
                       >
                         -
                       </button>
-                      <input
+                      <span
                         ref={(el) => (quantityRefs.current[index] = el)}
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
-                        onFocus={() => setFocusedCartIndex(index)}
-                        className="text-gray-900 text-sm w-12 bg-transparent text-center focus:outline-none focus:text-yellow-600"
-                        min="1"
-                        max={products.find(p => p.id === item.product_id)?.stock || 999}
-                      />
+                        className="text-gray-900 text-sm w-10 text-center font-semibold select-none"
+                      >
+                        {item.quantity}
+                      </span>
                       <button
                         onClick={() => handleIncreaseQuantity(item.product_id)}
-                        className="text-gray-600 hover:text-yellow-600 transition-colors px-2 py-1"
+                        className="text-gray-600 hover:text-yellow-600 transition-colors px-2 py-1 font-bold"
                       >
                         +
                       </button>
@@ -805,6 +1016,17 @@ export default function POS() {
                     <span className="text-red-500">-₱{discountAmount.toLocaleString()}</span>
                   </div>
                 )}
+                {discountAmount > 0 && excludedProductCount > 0 && (
+                  <div className="text-xs text-orange-500 bg-orange-50 rounded-lg px-2 py-1">
+                    ⚠️ {excludedProductCount} item(s) excluded from discount
+                  </div>
+                )}
+                {discountAmount > 0 && getActiveDiscountRule()?.max_discount_amount && 
+                  discountAmount >= parseFloat(getActiveDiscountRule().max_discount_amount) && (
+                  <div className="text-xs text-blue-500 bg-blue-50 rounded-lg px-2 py-1">
+                    ℹ️ Discount capped at ₱{parseFloat(getActiveDiscountRule().max_discount_amount).toFixed(2)}
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-semibold pt-2 border-t border-gray-200">
                   <span className="text-gray-900">Total:</span>
                   <span className="text-2xl text-yellow-600">₱{totalAmount.toLocaleString()}</span>
@@ -855,16 +1077,9 @@ export default function POS() {
                 <label className="block text-gray-700 font-medium mb-2 text-sm">
                   Payment Method
                 </label>
-                <select
-                  value={paymentData.paymentMethod}
-                  onChange={(e) => setPaymentData({...paymentData, paymentMethod: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-yellow-400/50 text-sm"
-                  disabled={processing}
-                >
-                  <option value="cash">Cash</option>
-                  <option value="gcash">GCash</option>
-                  <option value="card">Card</option>
-                </select>
+                <div className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm font-semibold">
+                  Cash
+                </div>
               </div>
 
               <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-xl p-4">
@@ -923,6 +1138,75 @@ export default function POS() {
           </div>
         </div>
       )}
+
+      {/* Void Confirmation Modal */}
+      {showVoidModal && voidTarget && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <FaBan className="text-red-500 text-lg" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Void Order #{voidTarget.id}</h3>
+                <p className="text-xs text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Customer</span>
+                <span className="font-medium text-gray-900">{voidTarget.customer_name || "Walk-in"}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Items</span>
+                <span className="font-medium text-gray-900">{voidTarget.items?.length || 0} item(s)</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Total</span>
+                <span className="font-bold text-green-600">
+                  ₱{parseFloat(voidTarget.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-xs text-yellow-700">
+              ⚠️ Voiding this order will restore stock for all items back to inventory.
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reason for voiding *</label>
+              <textarea
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Enter the reason for voiding this order..."
+                className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowVoidModal(false); setVoidTarget(null); setVoidReason(""); }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+                disabled={voidProcessing}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleVoidOrder}
+                disabled={!voidReason.trim() || voidProcessing}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              >
+                <FaBan className="text-xs" />
+                {voidProcessing ? "Voiding..." : "Void Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <KeyboardShortcutsHelp shortcuts={posShortcutsList} />
     </div>
   );
 }

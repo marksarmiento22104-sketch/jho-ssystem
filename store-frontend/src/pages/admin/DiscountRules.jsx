@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaPercent, FaDollarSign } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaPercent, FaDollarSign, FaShieldAlt, FaInfoCircle } from "react-icons/fa";
 import axios from "../../utils/axios";
 import { toast } from "../../components/Toast";
 
 export default function DiscountRules() {
   const [rules, setRules] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -16,11 +17,26 @@ export default function DiscountRules() {
     start_date: "",
     end_date: "",
     is_active: true,
+    max_discount_amount: "",
+    max_percentage: "",
+    usage_limit: "",
+    excluded_product_ids: [],
+    requires_approval: false,
   });
 
   useEffect(() => {
     fetchRules();
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get('/api/products');
+      setProducts(response.data);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    }
+  };
 
   const fetchRules = async () => {
     try {
@@ -70,6 +86,11 @@ export default function DiscountRules() {
       start_date: rule.start_date || "",
       end_date: rule.end_date || "",
       is_active: rule.is_active,
+      max_discount_amount: rule.max_discount_amount || "",
+      max_percentage: rule.max_percentage || "",
+      usage_limit: rule.usage_limit || "",
+      excluded_product_ids: rule.excluded_product_ids || [],
+      requires_approval: rule.requires_approval || false,
     });
     setShowModal(true);
   };
@@ -112,6 +133,11 @@ export default function DiscountRules() {
       start_date: "",
       end_date: "",
       is_active: true,
+      max_discount_amount: "",
+      max_percentage: "",
+      usage_limit: "",
+      excluded_product_ids: [],
+      requires_approval: false,
     });
     setEditing(null);
   };
@@ -159,6 +185,8 @@ export default function DiscountRules() {
                 <th className="py-3 px-4 text-center font-semibold">Type</th>
                 <th className="py-3 px-4 text-center font-semibold">Value</th>
                 <th className="py-3 px-4 text-center font-semibold">Min Purchase</th>
+                <th className="py-3 px-4 text-center font-semibold">Usage</th>
+                <th className="py-3 px-4 text-center font-semibold">Restrictions</th>
                 <th className="py-3 px-4 text-center font-semibold">Valid Period</th>
                 <th className="py-3 px-4 text-center font-semibold">Status</th>
                 <th className="py-3 px-4 text-center font-semibold w-32">Actions</th>
@@ -167,7 +195,7 @@ export default function DiscountRules() {
           <tbody>
             {rules.length === 0 ? (
               <tr>
-                <td colSpan="7" className="py-8 text-center text-gray-600 text-sm italic">
+                <td colSpan="9" className="py-8 text-center text-gray-600 text-sm italic">
                   No discount rules found. Create one to get started.
                 </td>
               </tr>
@@ -190,6 +218,37 @@ export default function DiscountRules() {
                   </td>
                   <td className="py-3 px-4 text-center text-gray-900 text-sm">
                     {rule.min_purchase ? `₱${parseFloat(rule.min_purchase).toFixed(2)}` : '-'}
+                  </td>
+                  <td className="py-3 px-4 text-center text-sm">
+                    {rule.usage_limit ? (
+                      <span className={`font-medium ${rule.usage_count >= rule.usage_limit ? 'text-red-500' : 'text-gray-700'}`}>
+                        {rule.usage_count || 0}/{rule.usage_limit}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Unlimited</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {rule.max_discount_amount && (
+                        <span className="px-1.5 py-0.5 bg-orange-500/10 text-orange-600 text-[10px] rounded font-medium">
+                          Max ₱{parseFloat(rule.max_discount_amount).toFixed(0)}
+                        </span>
+                      )}
+                      {rule.requires_approval && (
+                        <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 text-[10px] rounded font-medium">
+                          Approval
+                        </span>
+                      )}
+                      {rule.excluded_product_ids?.length > 0 && (
+                        <span className="px-1.5 py-0.5 bg-red-500/10 text-red-600 text-[10px] rounded font-medium">
+                          {rule.excluded_product_ids.length} excluded
+                        </span>
+                      )}
+                      {!rule.max_discount_amount && !rule.requires_approval && (!rule.excluded_product_ids || rule.excluded_product_ids.length === 0) && (
+                        <span className="text-gray-400 text-xs">None</span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-center">
                     {rule.start_date || rule.end_date ? (
@@ -346,6 +405,110 @@ export default function DiscountRules() {
                 <label htmlFor="is_active" className="text-gray-700 text-sm">
                   Active
                 </label>
+              </div>
+
+              {/* Restrictions Section */}
+              <div className="border-t border-gray-200 pt-4 mt-2">
+                <h4 className="text-gray-900 font-semibold text-sm mb-3 flex items-center gap-2">
+                  <FaShieldAlt className="text-yellow-500" /> Restrictions
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-gray-700 text-sm font-medium mb-2 block">
+                      Max Discount Amount (₱)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="No limit"
+                      value={formData.max_discount_amount}
+                      onChange={(e) => setFormData({...formData, max_discount_amount: e.target.value})}
+                      step="0.01"
+                      min="0"
+                      className="w-full bg-white border border-gray-300 text-gray-900 px-4 py-2.5 rounded-xl focus:outline-none focus:border-yellow-400/50 placeholder-gray-500 text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Caps the discount to this amount</p>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-700 text-sm font-medium mb-2 block">
+                      Max Percentage (%)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="No limit"
+                      value={formData.max_percentage}
+                      onChange={(e) => setFormData({...formData, max_percentage: e.target.value})}
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      className="w-full bg-white border border-gray-300 text-gray-900 px-4 py-2.5 rounded-xl focus:outline-none focus:border-yellow-400/50 placeholder-gray-500 text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Maximum percentage cap</p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="text-gray-700 text-sm font-medium mb-2 block">
+                    Usage Limit
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Unlimited"
+                    value={formData.usage_limit}
+                    onChange={(e) => setFormData({...formData, usage_limit: e.target.value})}
+                    min="1"
+                    className="w-full bg-white border border-gray-300 text-gray-900 px-4 py-2.5 rounded-xl focus:outline-none focus:border-yellow-400/50 placeholder-gray-500 text-sm"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">How many times this discount can be used total</p>
+                </div>
+
+                <div className="mt-4">
+                  <label className="text-gray-700 text-sm font-medium mb-2 block">
+                    Excluded Products
+                  </label>
+                  <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-xl p-3 space-y-2 bg-white">
+                    {products.length === 0 ? (
+                      <p className="text-gray-400 text-sm italic">No products available</p>
+                    ) : (
+                      products.map((product) => (
+                        <label key={product.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={formData.excluded_product_ids.includes(product.id)}
+                            onChange={(e) => {
+                              const ids = e.target.checked
+                                ? [...formData.excluded_product_ids, product.id]
+                                : formData.excluded_product_ids.filter(id => id !== product.id);
+                              setFormData({...formData, excluded_product_ids: ids});
+                            }}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-gray-700">{product.name}</span>
+                          <span className="text-gray-400 text-xs ml-auto">₱{parseFloat(product.price).toFixed(2)}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {formData.excluded_product_ids.length > 0 && (
+                    <p className="text-xs text-orange-500 mt-1">
+                      {formData.excluded_product_ids.length} product(s) excluded from this discount
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    id="requires_approval"
+                    checked={formData.requires_approval}
+                    onChange={(e) => setFormData({...formData, requires_approval: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="requires_approval" className="text-gray-700 text-sm">
+                    Requires admin approval before applying
+                  </label>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

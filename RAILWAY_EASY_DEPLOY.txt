@@ -1,0 +1,307 @@
+================================================================================
+     RAILYN STORE - EASY RAILWAY DEPLOYMENT (Step-by-Step)
+================================================================================
+
+NO DOCKER NEEDED! Railway auto-detects Laravel & React apps.
+Only 4 small file changes + Railway setup.
+
+================================================================================
+STEP 1: EDIT 1 FILE — store-frontend/src/utils/axios.js
+================================================================================
+
+Open: store-frontend/src/utils/axios.js
+
+Change this line:
+    axios.defaults.baseURL = '';
+
+To this:
+    axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
+Save. Done.
+
+
+================================================================================
+STEP 2: EDIT 1 FILE — store/config/cors.php
+================================================================================
+
+Open: store/config/cors.php
+
+Replace the ENTIRE file with:
+
+    <?php
+
+    return [
+        'paths' => ['api/*', 'sanctum/csrf-cookie'],
+        'allowed_methods' => ['*'],
+        'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:5174')),
+        'allowed_origins_patterns' => [],
+        'allowed_headers' => ['*'],
+        'exposed_headers' => [],
+        'max_age' => 0,
+        'supports_credentials' => true,
+    ];
+
+Save. Done.
+
+
+================================================================================
+STEP 3: CREATE 1 FILE — store-frontend/public/_redirects
+================================================================================
+
+Create a new file: store-frontend/public/_redirects
+
+Put ONLY this one line inside:
+
+    /*    /index.html   200
+
+Save. Done. (This fixes page refresh 404 errors on React Router)
+
+
+================================================================================
+STEP 4: CREATE 1 FILE — store/Procfile
+================================================================================
+
+Create a new file inside the store/ folder called: Procfile
+(No extension, capital P)
+
+Put ONLY this one line inside:
+
+    web: php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT
+
+Save. Done.
+
+
+================================================================================
+STEP 5: PUSH TO GITHUB
+================================================================================
+
+a) Go to https://github.com → click "+" → "New repository"
+   - Name: RailynStore
+   - Private: Yes
+   - Do NOT check "Add README"
+   - Click "Create repository"
+
+b) Open terminal/command prompt at: c:\laragon\www\RailynStore\railynStore
+
+c) Type these commands one by one:
+
+    git init
+    git add .
+    git commit -m "first commit"
+    git branch -M main
+    git remote add origin https://github.com/YOUR_USERNAME/RailynStore.git
+    git push -u origin main
+
+   *** Replace YOUR_USERNAME with your GitHub username ***
+
+d) Refresh your GitHub page — you should see your files.
+
+
+================================================================================
+STEP 6: CREATE RAILWAY ACCOUNT
+================================================================================
+
+a) Go to https://railway.com
+b) Click "Login" → "Login with GitHub"
+c) Authorize Railway
+d) You now have a Railway account (free $5 trial credit)
+
+
+================================================================================
+STEP 7: CREATE A NEW PROJECT ON RAILWAY
+================================================================================
+
+a) Click "New Project"
+b) Click "Empty Project"
+c) You'll see an empty project canvas
+
+
+================================================================================
+STEP 8: ADD MYSQL DATABASE
+================================================================================
+
+a) Click "+ New" (top right)
+b) Click "Database"
+c) Click "Add MySQL"
+d) Wait for it to spin up (takes ~30 seconds)
+e) Click on the MySQL box → go to "Variables" tab
+f) You'll see: MYSQLHOST, MYSQLPORT, MYSQLDATABASE, MYSQLUSER, MYSQLPASSWORD
+   (You don't need to copy these — Railway can link them automatically)
+
+
+================================================================================
+STEP 9: DEPLOY THE LARAVEL BACKEND
+================================================================================
+
+a) Click "+ New" → "GitHub Repo"
+b) Find and select your "RailynStore" repo
+c) Railway starts building — WAIT, it will fail. That's OK.
+
+d) Click on the service → "Settings" tab:
+   - Scroll to "Root Directory" → type:  store
+   - Railway will re-detect it as a PHP/Laravel app
+
+e) Now go to "Variables" tab → click "New Variable" for each:
+
+   APP_NAME          = RailynStore
+   APP_ENV           = production
+   APP_DEBUG         = false
+   APP_KEY           = (see below how to get this)
+   APP_URL           = (leave empty for now)
+
+   DB_CONNECTION     = mysql
+   DB_HOST           = ${{MySQL.MYSQLHOST}}
+   DB_PORT           = ${{MySQL.MYSQLPORT}}
+   DB_DATABASE       = ${{MySQL.MYSQLDATABASE}}
+   DB_USERNAME       = ${{MySQL.MYSQLUSER}}
+   DB_PASSWORD       = ${{MySQL.MYSQLPASSWORD}}
+
+   CORS_ALLOWED_ORIGINS = (leave empty for now)
+   SANCTUM_STATEFUL_DOMAINS = (leave empty for now)
+
+   SESSION_DRIVER        = cookie
+   SESSION_SECURE_COOKIE = true
+   SESSION_SAME_SITE     = none
+   SESSION_DOMAIN        = .up.railway.app
+
+   LOG_CHANNEL       = stderr
+   CACHE_STORE       = file
+   QUEUE_CONNECTION  = sync
+
+   *** HOW TO GET APP_KEY: ***
+   Open your local terminal at the store/ folder and run:
+       php artisan key:generate --show
+   It will print something like:  base64:ABC123xxxx...
+   Copy the ENTIRE thing (including "base64:") and paste as APP_KEY.
+
+f) Go to "Settings" → scroll to "Networking" → click "Generate Domain"
+   You'll get a URL like:
+       https://railynstore-production.up.railway.app
+
+   COPY THIS URL.
+
+g) Go back to "Variables" and update:
+   APP_URL = https://railynstore-production.up.railway.app
+
+
+================================================================================
+STEP 10: DEPLOY THE REACT FRONTEND
+================================================================================
+
+a) Click "+ New" → "GitHub Repo"
+b) Select the SAME "RailynStore" repo again
+
+c) Click on this NEW service → "Settings" tab:
+   - Root Directory → type:  store-frontend
+   - Railway will detect it as a Node/Vite app
+
+d) Go to "Variables" tab → add:
+
+   VITE_API_URL = https://railynstore-production.up.railway.app
+   
+   (Use the backend URL you got in Step 9f)
+
+   *** IMPORTANT: VITE_ variables are build-time only. ***
+   So you also need to add it in Settings → Build section:
+   Click "Add Build Argument":
+     Key:   VITE_API_URL
+     Value: https://railynstore-production.up.railway.app
+
+e) Go to "Settings" → "Networking" → click "Generate Domain"
+   You'll get a URL like:
+       https://railynstore-frontend-production.up.railway.app
+
+   COPY THIS URL.
+
+
+================================================================================
+STEP 11: UPDATE BACKEND VARIABLES WITH FRONTEND URL
+================================================================================
+
+Go back to the BACKEND service → "Variables" tab → update these:
+
+   CORS_ALLOWED_ORIGINS     = https://railynstore-frontend-production.up.railway.app
+   SANCTUM_STATEFUL_DOMAINS = railynstore-frontend-production.up.railway.app
+
+   *** NOTE: CORS has "https://" but SANCTUM does NOT ***
+
+
+================================================================================
+STEP 12: SEED THE DATABASE (First Time Only)
+================================================================================
+
+a) Click on the Backend service
+b) Click the "Shell" tab (or three dots → "Open Shell")
+c) Type:
+
+       php artisan db:seed --force
+
+d) Wait for it to finish. Your database now has default data.
+
+
+================================================================================
+STEP 13: TEST IT!
+================================================================================
+
+a) Open your FRONTEND URL in the browser:
+       https://railynstore-frontend-production.up.railway.app
+
+b) Try to login with your credentials.
+
+c) If it works — CONGRATULATIONS! You're deployed! 🎉
+
+
+================================================================================
+TROUBLESHOOTING (If Something Goes Wrong)
+================================================================================
+
+PROBLEM: Login gives "Network Error" or "CORS error"
+FIX:     Check these backend variables are correct:
+         - CORS_ALLOWED_ORIGINS must have https:// and match frontend URL exactly
+         - SANCTUM_STATEFUL_DOMAINS must NOT have https://
+         - SESSION_SAME_SITE must be "none"
+         - SESSION_SECURE_COOKIE must be "true"
+
+PROBLEM: "500 Server Error"
+FIX:     - Make sure APP_KEY is set
+         - Check DB variables are correct
+         - Go to backend service Logs tab to see the actual error
+
+PROBLEM: Page refresh shows 404
+FIX:     Make sure _redirects file exists in store-frontend/public/
+
+PROBLEM: Build fails
+FIX:     - Check Railway Logs tab for the error
+         - Make sure Root Directory is set correctly
+         - Backend = "store", Frontend = "store-frontend"
+
+PROBLEM: "419 CSRF Token Mismatch"  
+FIX:     - SESSION_DOMAIN must be ".up.railway.app" (with the dot in front)
+         - SESSION_SECURE_COOKIE must be "true"
+         - SESSION_SAME_SITE must be "none"
+
+
+================================================================================
+FUTURE UPDATES — HOW TO REDEPLOY
+================================================================================
+
+After you make code changes locally, just run:
+
+    git add .
+    git commit -m "your update message"
+    git push
+
+Railway auto-detects the push and redeploys both services. Done!
+
+
+================================================================================
+SUMMARY — ONLY 4 FILE CHANGES NEEDED
+================================================================================
+
+  EDIT:    store-frontend/src/utils/axios.js     (1 line change)
+  EDIT:    store/config/cors.php                  (read from env)
+  CREATE:  store-frontend/public/_redirects       (1 line file)
+  CREATE:  store/Procfile                         (1 line file)
+
+That's it! Everything else is done on Railway's website.
+================================================================================

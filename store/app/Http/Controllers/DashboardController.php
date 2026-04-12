@@ -20,13 +20,20 @@ class DashboardController extends Controller
     {
         $today = Carbon::today();
         
-        // Today's sales
+        // Today's sales (exclude voided)
         $todaysSales = Order::whereDate('created_at', $today)
             ->where('payment_status', 'paid')
+            ->where(function($q) {
+                $q->where('is_voided', false)->orWhereNull('is_voided');
+            })
             ->sum('total_amount');
 
-        // Today's transactions count
-        $todaysTransactions = Order::whereDate('created_at', $today)->count();
+        // Today's transactions count (exclude voided)
+        $todaysTransactions = Order::whereDate('created_at', $today)
+            ->where(function($q) {
+                $q->where('is_voided', false)->orWhereNull('is_voided');
+            })
+            ->count();
 
         // Calculate profit (assuming 30% margin for simplicity)
         $todaysProfit = $todaysSales * 0.30;
@@ -36,7 +43,7 @@ class DashboardController extends Controller
             ->where('is_active', true)
             ->count();
 
-        // Sales trend (last 5 months)
+        // Sales trend (last 5 months, exclude voided)
         $salesTrend = DB::table('orders')
             ->select(
                 DB::raw('DATE_FORMAT(created_at, "%b") as name'),
@@ -45,6 +52,9 @@ class DashboardController extends Controller
                 DB::raw('SUM(total_amount) as sales')
             )
             ->where('payment_status', 'paid')
+            ->where(function($q) {
+                $q->where('is_voided', false)->orWhereNull('is_voided');
+            })
             ->where('created_at', '>=', Carbon::now()->subMonths(5))
             ->whereNull('deleted_at')
             ->groupBy(DB::raw('YEAR(created_at)'), DB::raw('MONTH(created_at)'), DB::raw('DATE_FORMAT(created_at, "%b")'))
@@ -70,12 +80,15 @@ class DashboardController extends Controller
             ->groupBy('categories.name')
             ->get();
 
-        // Top selling products
+        // Top selling products (exclude voided)
         $topProducts = DB::table('products')
             ->select('products.name', DB::raw('SUM(order_items.quantity) as sales'))
             ->join('order_items', 'products.id', '=', 'order_items.product_id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->where('orders.payment_status', 'paid')
+            ->where(function($q) {
+                $q->where('orders.is_voided', false)->orWhereNull('orders.is_voided');
+            })
             ->whereNull('products.deleted_at')
             ->whereNull('orders.deleted_at')
             ->groupBy('products.name')
@@ -98,8 +111,11 @@ class DashboardController extends Controller
             ->groupBy('categories.name')
             ->get();
 
-        // Recent transactions (last 10)
+        // Recent transactions (last 10, exclude voided)
         $recentTransactions = Order::with(['items.product'])
+            ->where(function($q) {
+                $q->where('is_voided', false)->orWhereNull('is_voided');
+            })
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()

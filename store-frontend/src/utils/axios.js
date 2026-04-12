@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Base URL will be relative since we're using Vite's proxy
-axios.defaults.baseURL = '';
+// In production, VITE_API_URL points to the backend URL
+// In local dev, it's empty so Vite's proxy in vite.config.js handles /api requests
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
 // Add CSRF token to all requests
 axios.defaults.withCredentials = true;

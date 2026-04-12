@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DamagedItem;
 use App\Models\Product;
+use App\Models\InventoryLog;
 use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -87,10 +88,30 @@ class DamagedItemController extends Controller
             ], 422);
         }
 
+        // Check if product still exists
+        if (!$item->product) {
+            return response()->json([
+                'message' => 'Cannot approve: associated product no longer exists'
+            ], 422);
+        }
+
         DB::transaction(function () use ($item, $request) {
             // Deduct from stock
             $product = $item->product;
+            $oldStock = $product->stock;
             $product->decrement('stock', $item->quantity);
+
+            // Log inventory movement
+            InventoryLog::record(
+                $product->id,
+                'damage',
+                -$item->quantity,
+                $oldStock,
+                $oldStock - $item->quantity,
+                'DamagedItem',
+                $item->id,
+                "Damaged/Lost: {$item->quantity}x {$product->name} - Reason: {$item->reason}"
+            );
 
             // Update damaged item status
             $item->update([
@@ -137,11 +158,13 @@ class DamagedItemController extends Controller
             'review_notes' => $request->review_notes,
         ]);
 
+        $productName = $item->product ? $item->product->name : 'Unknown Product';
+
         $this->logActivity(
             'rejected',
             'DamagedItem',
             $item->id,
-            "Rejected damaged item report for {$item->product->name}"
+            "Rejected damaged item report for {$productName}"
         );
 
         return response()->json($item->load(['product', 'reporter', 'reviewer']));

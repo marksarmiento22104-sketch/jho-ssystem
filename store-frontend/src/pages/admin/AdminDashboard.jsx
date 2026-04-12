@@ -341,33 +341,35 @@ export default function AdminDashboard() {
               </div>
 
               {/* Recent Transactions - Cleaner Table */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <FaListUl className="text-yellow-400" />
-                  Recent Transactions
-                </h3>
+              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg">
+                <div className="p-6 pb-0">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                    <FaListUl className="text-yellow-400" />
+                    Recent Transactions
+                  </h3>
+                </div>
                 {dashboardData.recent_transactions.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="py-3 px-4 text-left text-gray-600 font-medium">ID</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-medium">Customer</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-medium">Items</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-medium">Total</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-medium">Payment</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-medium">Date</th>
+                    <table className="w-full">
+                      <thead className="bg-gray-100 border-b border-gray-200">
+                        <tr className="text-gray-600 text-sm font-medium">
+                          <th className="py-3 px-4 text-left">Order ID</th>
+                          <th className="py-3 px-4 text-left">Customer</th>
+                          <th className="py-3 px-4 text-center">Items</th>
+                          <th className="py-3 px-4 text-right">Total</th>
+                          <th className="py-3 px-4 text-center">Date</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dashboardData.recent_transactions.map((t) => (
-                          <tr key={t.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
-                            <td className="py-3 px-4 text-gray-700">#{t.id}</td>
-                            <td className="py-3 px-4 text-gray-700">{t.customer}</td>
-                            <td className="py-3 px-4 text-gray-700">{t.items_count}</td>
-                            <td className="py-3 px-4 text-yellow-400 font-bold">₱{parseFloat(t.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td className="py-3 px-4 text-gray-700 capitalize">{t.payment_method}</td>
-                            <td className="py-3 px-4 text-gray-600 text-xs">{t.date}</td>
+                          <tr key={t.id} className="border-b border-gray-200 hover:bg-gray-50 transition text-sm">
+                            <td className="py-3 px-4 text-yellow-500 font-bold">#{t.id}</td>
+                            <td className="py-3 px-4 text-gray-900">{t.customer || 'Walk-in'}</td>
+                            <td className="py-3 px-4 text-center text-gray-700">{t.items_count}</td>
+                            <td className="py-3 px-4 text-right text-yellow-400 font-bold">₱{parseFloat(t.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="text-sm text-gray-700">{t.date}</div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -487,36 +489,51 @@ export default function AdminDashboard() {
               )}
 
               {/* Detailed Transaction List */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Detailed Transactions</h3>
+              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg">
+                <div className="p-6 pb-0">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Detailed Transactions</h3>
+                </div>
                 {salesReport.recent_transactions && salesReport.recent_transactions.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-300">
-                          <th className="py-3 px-4 text-left text-gray-600 font-semibold text-xs uppercase tracking-wider">Code</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-semibold text-xs uppercase tracking-wider">Staff</th>
-                          <th className="py-3 px-4 text-right text-gray-600 font-semibold text-xs uppercase tracking-wider">Subtotal</th>
-                          <th className="py-3 px-4 text-right text-gray-600 font-semibold text-xs uppercase tracking-wider">Tax</th>
-                          <th className="py-3 px-4 text-right text-gray-600 font-semibold text-xs uppercase tracking-wider">Discount</th>
-                          <th className="py-3 px-4 text-right text-gray-600 font-semibold text-xs uppercase tracking-wider">Total</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-semibold text-xs uppercase tracking-wider">Payment</th>
-                          <th className="py-3 px-4 text-left text-gray-600 font-semibold text-xs uppercase tracking-wider">Date</th>
+                    <table className="w-full">
+                      <thead className="bg-gray-100 border-b border-gray-200">
+                        <tr className="text-gray-600 text-sm font-medium">
+                          <th className="py-3 px-4 text-left">Order ID</th>
+                          <th className="py-3 px-4 text-left">Customer</th>
+                          <th className="py-3 px-4 text-left">Items</th>
+                          <th className="py-3 px-4 text-right">Discount</th>
+                          <th className="py-3 px-4 text-right">Total</th>
+                          <th className="py-3 px-4 text-center">Date</th>
                         </tr>
                       </thead>
                       <tbody>
                         {salesReport.recent_transactions.map((t) => (
-                          <tr key={t.id} className="border-b border-gray-200 hover:bg-gray-700/30 transition">
-                            <td className="py-3 px-4 text-gray-700 font-mono text-xs">{t.transaction_code}</td>
-                            <td className="py-3 px-4 text-gray-700">{t.user?.name || "N/A"}</td>
-                            <td className="py-3 px-4 text-right text-gray-700">₱{parseFloat(t.subtotal || 0).toLocaleString()}</td>
-                            <td className="py-3 px-4 text-right text-blue-400">₱{parseFloat(t.tax || 0).toLocaleString()}</td>
-                            <td className="py-3 px-4 text-right text-red-400">₱{parseFloat(t.discount || 0).toLocaleString()}</td>
-                            <td className="py-3 px-4 text-right text-yellow-400 font-bold">₱{parseFloat(t.total || 0).toLocaleString()}</td>
+                          <tr key={t.id} className="border-b border-gray-200 hover:bg-gray-50 transition text-sm">
+                            <td className="py-3 px-4 text-yellow-500 font-bold">#{t.order_id || t.id}</td>
+                            <td className="py-3 px-4 text-gray-900">{t.customer_name || 'Walk-in'}</td>
                             <td className="py-3 px-4">
-                              <span className="px-2 py-1 bg-yellow-50 border border-yellow-200 text-gray-900 rounded text-xs capitalize font-medium">{t.payment_method}</span>
+                              <div className="flex flex-col gap-1">
+                                {t.items?.map((item, idx) => (
+                                  <span key={idx} className="text-gray-700">
+                                    {item.product_name} <span className="text-gray-500">(×{item.quantity})</span>
+                                  </span>
+                                )) || <span className="text-gray-400">-</span>}
+                              </div>
                             </td>
-                            <td className="py-3 px-4 text-gray-600 text-xs">{new Date(t.created_at).toLocaleDateString()}</td>
+                            <td className="py-3 px-4 text-right">
+                              {t.discount && parseFloat(t.discount) > 0 ? (
+                                <span className="text-orange-400 font-semibold">
+                                  -₱{parseFloat(t.discount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right text-yellow-400 font-bold">₱{parseFloat(t.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="text-sm text-gray-700">{new Date(t.created_at).toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{new Date(t.created_at).toLocaleTimeString()}</div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

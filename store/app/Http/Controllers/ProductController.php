@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\InventoryLog;
+use App\Models\PriceHistory;
 use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -50,6 +52,20 @@ class ProductController extends Controller
         }
 
         $product = Product::create($validated);
+
+        // Log initial stock as inventory in
+        if ($product->stock > 0) {
+            InventoryLog::record(
+                $product->id,
+                'in',
+                $product->stock,
+                0,
+                $product->stock,
+                'Product',
+                $product->id,
+                'Initial stock on product creation'
+            );
+        }
 
         $this->logActivity(
             'created',
@@ -101,7 +117,22 @@ class ProductController extends Controller
         }
 
         $old = $product->toArray();
+        $oldPrice = (float) $product->price;
+
+        // Remove stock from update data - stock should only be changed via stock adjustment
+        unset($validated['stock']);
+
         $product->update($validated);
+
+        // Track price change
+        if (isset($validated['price']) && (float) $validated['price'] !== $oldPrice) {
+            PriceHistory::record(
+                $product->id,
+                $oldPrice,
+                (float) $validated['price'],
+                'Price updated via product edit'
+            );
+        }
 
         $this->logActivity(
             'updated',
@@ -147,6 +178,19 @@ class ProductController extends Controller
         $product->update(['stock' => $validated['stock']]);
 
         $reason = $validated['reason'] ?? 'Stock adjustment';
+        $diff = $validated['stock'] - $oldStock;
+
+        InventoryLog::record(
+            $product->id,
+            $diff > 0 ? 'in' : 'adjustment',
+            $diff,
+            $oldStock,
+            $validated['stock'],
+            'StockAdjustment',
+            $product->id,
+            $reason
+        );
+
         $this->logActivity(
             'updated',
             'Product',

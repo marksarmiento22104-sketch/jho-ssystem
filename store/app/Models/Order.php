@@ -45,14 +45,26 @@ class Order extends Model
         'payment_status',
         'order_status',
         'notes',
-        'reference_number'
+        'reference_number',
+        'is_voided',
+        'voided_by',
+        'voided_at',
+        'void_reason',
+        'sales_transaction_id',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'is_voided' => 'boolean',
+        'voided_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
+
+    public function voidedByUser()
+    {
+        return $this->belongsTo(User::class, 'voided_by');
+    }
 
     public function user()
     {

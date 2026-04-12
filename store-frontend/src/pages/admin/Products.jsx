@@ -3,6 +3,9 @@ import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaSearch, FaEye, FaBa
 import axios from "../../utils/axios";
 import Pagination from "../../components/Pagination";
 import { toast } from "../../components/Toast";
+import ProductInventoryModal from "../../components/ProductInventoryModal";
+import useKeyboardShortcuts from "../../utils/useKeyboardShortcuts";
+import KeyboardShortcutsHelp from "../../components/KeyboardShortcutsHelp";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -10,6 +13,8 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,6 +37,25 @@ export default function Products() {
     expiration_date: "",
     is_active: true
   });
+
+  // Product search ref
+  const searchInputRef = useRef(null);
+
+  // Keyboard shortcuts
+  const productShortcuts = [
+    { key: "n", ctrl: true, handler: () => { setEditing(null); setShowModal(true); }, description: "Add new product" },
+    { key: "f", ctrl: true, handler: () => { searchInputRef.current?.focus(); }, description: "Focus search" },
+    { key: "Escape", handler: () => { if (showModal) setShowModal(false); if (showInventoryModal) setShowInventoryModal(false); }, description: "Close modal" },
+  ];
+
+  useKeyboardShortcuts(productShortcuts, true);
+
+  const productShortcutsList = [
+    { keys: "Ctrl + N", description: "Add new product" },
+    { keys: "Ctrl + F", description: "Focus search" },
+    { keys: "Escape", description: "Close modal" },
+    { keys: "F1", description: "Toggle shortcuts help" },
+  ];
 
   // Fetch products and categories
   const fetchProducts = async () => {
@@ -101,8 +125,9 @@ export default function Products() {
 
     try {
       if (editing) {
-        // Update existing product
-        const response = await axios.put(`/api/products/${editing}`, formData);
+        // Update existing product (exclude stock - use inventory modal to adjust stock)
+        const { stock, ...editData } = formData;
+        const response = await axios.put(`/api/products/${editing}`, editData);
         setProducts(products.map(p => p.id === editing ? response.data : p));
         toast.success("Product updated successfully!");
       } else {
@@ -152,22 +177,10 @@ export default function Products() {
     setShowModal(true);
   };
 
-  // View product details
+  // View product details - open inventory modal
   const handleView = (product) => {
-    const isExpired = product.expiration_date && new Date(product.expiration_date) < new Date();
-    const message = `
-Product: ${product.name}
-SKU: ${product.sku || 'N/A'}
-Barcode: ${product.barcode || 'N/A'}
-Category: ${product.category?.name || 'N/A'}
-Price: ₱${parseFloat(product.price).toLocaleString()}
-Stock: ${product.stock}
-Reorder Point: ${product.reorder_point || 'N/A'}
-Expiration: ${product.expiration_date ? new Date(product.expiration_date).toLocaleDateString() : 'N/A'}${isExpired ? ' (EXPIRED)' : ''}
-Status: ${product.is_active ? 'Active' : 'Inactive'}
-Description: ${product.description || 'N/A'}
-    `.trim();
-    alert(message);
+    setSelectedProduct(product);
+    setShowInventoryModal(true);
   };
 
   // Toggle is_active status
@@ -307,8 +320,9 @@ Description: ${product.description || 'N/A'}
           <div className="relative flex-1 max-w-md">
             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Search products..."
+              placeholder="Search products... (Ctrl+F)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-gray-50 border border-gray-300 text-gray-700 pl-11 pr-4 py-2.5 rounded-xl focus:outline-none focus:border-yellow-400/50 placeholder-gray-500 text-sm"
@@ -346,7 +360,13 @@ Description: ${product.description || 'N/A'}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <div>
-                        <div className="font-medium text-gray-900">{product.name}</div>
+                        <div 
+                          className="font-medium text-gray-900 cursor-pointer hover:text-yellow-600 transition-colors"
+                          onClick={() => handleView(product)}
+                          title="Click to view inventory history"
+                        >
+                          {product.name}
+                        </div>
                         {product.sku && (
                           <div className="text-xs text-gray-500">SKU: {product.sku}</div>
                         )}
@@ -568,17 +588,28 @@ Description: ${product.description || 'N/A'}
                 
                 <div>
                   <label className="text-gray-700 text-sm font-medium mb-2 block">
-                    Stock <span className="text-red-400">*</span>
+                    Stock {!editing && <span className="text-red-400">*</span>}
                   </label>
-                  <input 
-                    type="number" 
-                    placeholder="0" 
-                    value={formData.stock} 
-                    onChange={(e) => setFormData({...formData, stock: e.target.value})} 
-                    required 
-                    min="0"
-                    className="w-full bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2.5 rounded-xl focus:outline-none focus:border-yellow-400/50 placeholder-gray-500 text-sm"
-                  />
+                  {editing ? (
+                    <div>
+                      <div className="w-full bg-gray-100 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed">
+                        {formData.stock}
+                      </div>
+                      <p className="text-xs text-yellow-600 mt-1.5 flex items-center gap-1">
+                        <FaEye className="text-[10px]" /> Use the inventory modal to adjust stock
+                      </p>
+                    </div>
+                  ) : (
+                    <input 
+                      type="number" 
+                      placeholder="0" 
+                      value={formData.stock} 
+                      onChange={(e) => setFormData({...formData, stock: e.target.value})} 
+                      required 
+                      min="0"
+                      className="w-full bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2.5 rounded-xl focus:outline-none focus:border-yellow-400/50 placeholder-gray-500 text-sm"
+                    />
+                  )}
                 </div>
               </div>
               
@@ -630,6 +661,19 @@ Description: ${product.description || 'N/A'}
           </div>
         </div>
       )}
+
+      {/* Product Inventory Modal */}
+      <ProductInventoryModal
+        product={selectedProduct}
+        isOpen={showInventoryModal}
+        onClose={() => {
+          setShowInventoryModal(false);
+          setSelectedProduct(null);
+        }}
+        onStockUpdated={fetchProducts}
+      />
+
+      <KeyboardShortcutsHelp shortcuts={productShortcutsList} />
     </div>
   );
 }

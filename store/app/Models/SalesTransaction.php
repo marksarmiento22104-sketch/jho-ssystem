@@ -17,6 +17,10 @@ class SalesTransaction extends Model
         'amount_paid',
         'change',
         'discount_rule_id',
+        'is_voided',
+        'voided_by',
+        'voided_at',
+        'void_reason',
     ];
 
     protected $casts = [
@@ -26,6 +30,8 @@ class SalesTransaction extends Model
         'total' => 'decimal:2',
         'amount_paid' => 'decimal:2',
         'change' => 'decimal:2',
+        'is_voided' => 'boolean',
+        'voided_at' => 'datetime',
     ];
 
     public function user()
@@ -41,6 +47,11 @@ class SalesTransaction extends Model
     public function discountRule()
     {
         return $this->belongsTo(DiscountRule::class);
+    }
+
+    public function order()
+    {
+        return $this->hasOne(Order::class, 'sales_transaction_id');
     }
 
     protected static function boot()

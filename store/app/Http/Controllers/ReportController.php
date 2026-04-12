@@ -18,7 +18,11 @@ class ReportController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
-        $query = Order::query()->where('payment_status', 'paid');
+        $query = Order::query()
+            ->where('payment_status', 'paid')
+            ->where(function($q) {
+                $q->where('is_voided', false)->orWhereNull('is_voided');
+            });
 
         // Apply date filters
         if ($request->has('start_date')) {
@@ -99,13 +103,19 @@ class ReportController extends Controller
             'recent_transactions' => $transactions->take(10)->map(function($order) {
                 return [
                     'id' => $order->id,
-                    'transaction_code' => 'ORD-' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
+                    'order_id' => $order->id,
                     'customer_name' => $order->customer_name,
                     'subtotal' => $order->subtotal ?? $order->total_amount,
                     'discount' => $order->discount ?? 0,
                     'tax' => 0,
                     'total' => $order->total_amount,
                     'payment_method' => $order->payment_method,
+                    'items' => $order->items->map(function($item) {
+                        return [
+                            'product_name' => $item->product->name ?? 'Deleted Product',
+                            'quantity' => $item->quantity,
+                        ];
+                    }),
                     'created_at' => $order->created_at,
                 ];
             }),
@@ -132,6 +142,9 @@ class ReportController extends Controller
         ->join('products', 'order_items.product_id', '=', 'products.id')
         ->join('orders', 'order_items.order_id', '=', 'orders.id')
         ->where('orders.payment_status', 'paid')
+        ->where(function($q) {
+            $q->where('orders.is_voided', false)->orWhereNull('orders.is_voided');
+        })
         ->groupBy('product_id')
         ->orderBy('total_quantity', 'desc');
 
@@ -219,7 +232,11 @@ class ReportController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
-        $query = Order::query()->where('payment_status', 'paid');
+        $query = Order::query()
+            ->where('payment_status', 'paid')
+            ->where(function($q) {
+                $q->where('is_voided', false)->orWhereNull('is_voided');
+            });
 
         if ($request->has('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);

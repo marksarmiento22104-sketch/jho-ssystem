@@ -1,0 +1,582 @@
+================================================================================
+       RAILYN STORE - RAILWAY DEPLOYMENT GUIDE (via GitHub)
+================================================================================
+
+System Overview:
+  - Backend:  Laravel 12 (PHP 8.2+) API with Sanctum auth → "store/" folder
+  - Frontend: React SPA (Vite + React Router)              → "store-frontend/" folder
+  - Database: MySQL (Railway add-on)
+
+You will create THREE things on Railway:
+  1. MySQL Database (add-on)
+  2. Backend Service  (Laravel API)
+  3. Frontend Service (React static site served by Node/serve)
+
+================================================================================
+PART 1: PREPARE YOUR CODE (Local Changes Before Pushing to GitHub)
+================================================================================
+
+STEP 1 — Update the frontend axios to use environment variable for API URL
+------------------------------------------------------------------------
+Open: store-frontend/src/utils/axios.js
+
+Replace the ENTIRE file contents with:
+
+    import axios from 'axios';
+
+    // In production, use the full backend URL; in dev, use '' (Vite proxy handles it)
+    axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
+
+    axios.defaults.withCredentials = true;
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+    axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response?.status === 401 || error.response?.status === 419) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    export default axios;
+
+
+STEP 2 — Create a Dockerfile for the Laravel backend
+------------------------------------------------------------------------
+Create file: store/Dockerfile
+
+    FROM php:8.2-apache
+
+    # Install system dependencies
+    RUN apt-get update && apt-get install -y \
+        git \
+        curl \
+        libpng-dev \
+        libonig-dev \
+        libxml2-dev \
+        zip \
+        unzip \
+        libzip-dev \
+        nodejs \
+        npm \
+        && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    # Enable Apache mod_rewrite
+    RUN a2enmod rewrite
+
+    # Set Apache DocumentRoot to Laravel's public folder
+    ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+    RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+    RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+    # Allow .htaccess overrides
+    RUN echo '<Directory /var/www/html/public>\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>' > /etc/apache2/conf-available/laravel.conf \
+        && a2enconf laravel
+
+    # Install Composer
+    COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+    # Set working directory
+    WORKDIR /var/www/html
+
+    # Copy composer files first (for Docker cache)
+    COPY composer.json composer.lock ./
+
+    # Install PHP dependencies (no dev)
+    RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+    # Copy the rest of the application
+    COPY . .
+
+    # Run post-install scripts
+    RUN composer run-script post-autoload-dump
+
+    # Install Node dependencies and build frontend assets (for Inertia/Vite)
+    RUN npm install && npm run build
+
+    # Set permissions
+    RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+    RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+    # Create storage link
+    RUN php artisan storage:link || true
+
+    # Expose port 80 (Railway will map via PORT env variable)
+    EXPOSE 80
+
+    # Start Apache
+    CMD ["apache2-foreground"]
+
+
+STEP 3 — Create a Dockerfile for the React frontend
+------------------------------------------------------------------------
+Create file: store-frontend/Dockerfile
+
+    FROM node:20-alpine AS build
+
+    WORKDIR /app
+
+    # Copy package files
+    COPY package.json package-lock.json ./
+
+    # Install dependencies
+    RUN npm ci
+
+    # Copy source code
+    COPY . .
+
+    # Build argument for the API URL (passed at build time)
+    ARG VITE_API_URL
+    ENV VITE_API_URL=$VITE_API_URL
+
+    # Build the app
+    RUN npm run build
+
+    # --- Production stage ---
+    FROM node:20-alpine AS production
+
+    WORKDIR /app
+
+    # Install 'serve' to serve the static files
+    RUN npm install -g serve
+
+    # Copy built files from build stage
+    COPY --from=build /app/dist ./dist
+
+    # Railway uses the PORT env variable
+    EXPOSE 3000
+
+    CMD ["sh", "-c", "serve -s dist -l ${PORT:-3000}"]
+
+
+STEP 4 — Update Laravel CORS config for production
+------------------------------------------------------------------------
+Open: store/config/cors.php
+
+Replace the ENTIRE file contents with:
+
+    <?php
+
+    return [
+        'paths' => ['api/*', 'sanctum/csrf-cookie'],
+        'allowed_methods' => ['*'],
+        'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:5174')))),
+        'allowed_origins_patterns' => [],
+        'allowed_headers' => ['*'],
+        'exposed_headers' => [],
+        'max_age' => 0,
+        'supports_credentials' => true,
+    ];
+
+
+STEP 5 — Update Laravel session config for cross-domain cookies (important!)
+------------------------------------------------------------------------
+Open: store/config/session.php
+
+Find these lines and make sure the defaults read from env:
+
+    'domain'    => env('SESSION_DOMAIN', null),
+    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    'secure'    => env('SESSION_SECURE_COOKIE', false),
+
+  (These should already be there by default in Laravel. Just verify.)
+
+
+STEP 6 — Create the startup script for Laravel on Railway
+------------------------------------------------------------------------
+Create file: store/docker-entrypoint.sh
+
+    #!/bin/bash
+    set -e
+
+    # Run migrations automatically on deploy
+    php artisan migrate --force
+
+    # Cache config, routes, and views for performance
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+
+    # Seed database (only first time — remove this line after initial deploy)
+    php artisan db:seed --force || true
+
+    # Start Apache
+    exec apache2-foreground
+
+Then update the last line of store/Dockerfile:
+  Change:   CMD ["apache2-foreground"]
+  To:       CMD ["bash", "/var/www/html/docker-entrypoint.sh"]
+
+Also add this line BEFORE the CMD in store/Dockerfile:
+    RUN chmod +x /var/www/html/docker-entrypoint.sh
+
+
+STEP 7 — Add a .dockerignore to both folders
+------------------------------------------------------------------------
+Create file: store/.dockerignore
+
+    /vendor
+    /node_modules
+    /.env
+    /storage/logs/*.log
+    /storage/framework/cache/data/*
+    /storage/framework/sessions/*
+    /storage/framework/views/*
+    .git
+    .gitignore
+
+Create file: store-frontend/.dockerignore
+
+    node_modules
+    dist
+    .git
+    .gitignore
+
+
+================================================================================
+PART 2: PUSH CODE TO GITHUB
+================================================================================
+
+STEP 8 — Initialize Git repo and push to GitHub
+------------------------------------------------------------------------
+a) Go to https://github.com and create a NEW repository
+   - Name it something like: "RailynStore"
+   - Set it to Private (recommended) or Public
+   - Do NOT initialize with README (you already have files)
+
+b) Open a terminal at: c:\laragon\www\RailynStore\railynStore
+
+c) Run these commands:
+
+    git init
+    git add .
+    git commit -m "Initial commit - RailynStore"
+    git branch -M main
+    git remote add origin https://github.com/YOUR_USERNAME/RailynStore.git
+    git push -u origin main
+
+   (Replace YOUR_USERNAME with your actual GitHub username)
+
+   NOTE: If you already have a .git folder, skip "git init" and just do:
+    git add .
+    git commit -m "Prepare for Railway deployment"
+    git push
+
+
+================================================================================
+PART 3: SET UP RAILWAY
+================================================================================
+
+STEP 9 — Create a Railway account and project
+------------------------------------------------------------------------
+a) Go to https://railway.com and sign up (use GitHub login for easiest setup)
+b) Click "New Project"
+c) Choose "Empty Project"
+d) Name it "RailynStore"
+
+
+STEP 10 — Add a MySQL Database
+------------------------------------------------------------------------
+a) Inside your Railway project, click "+ New"
+b) Select "Database" → "MySQL"
+c) Railway will automatically create a MySQL instance
+d) Click on the MySQL service → go to "Variables" tab
+e) You will see variables like:
+     MYSQL_HOST
+     MYSQL_PORT
+     MYSQL_DATABASE
+     MYSQL_USER
+     MYSQL_PASSWORD
+     MYSQL_URL        ← (connection string)
+   
+   COPY these values — you'll need them for the backend service.
+
+
+STEP 11 — Deploy the Laravel Backend Service
+------------------------------------------------------------------------
+a) In your Railway project, click "+ New" → "GitHub Repo"
+b) Select your "RailynStore" repository
+c) Railway will ask which folder to deploy. You need to configure it:
+
+d) Click on the new service → go to "Settings" tab:
+   - Set "Root Directory" to:    store
+   - Set "Builder" to:           Dockerfile
+   - (Railway should auto-detect the Dockerfile in the store/ folder)
+
+e) Go to the "Variables" tab and add these environment variables:
+
+    APP_NAME=RailynStore
+    APP_ENV=production
+    APP_DEBUG=false
+    APP_KEY=              ← (generate this, see below)
+    APP_URL=              ← (will fill after deploy, use your Railway backend URL)
+
+    DB_CONNECTION=mysql
+    DB_HOST=              ← (from MySQL service: MYSQL_HOST or use Railway's reference variable)
+    DB_PORT=              ← (from MySQL service: MYSQL_PORT, usually 3306)
+    DB_DATABASE=          ← (from MySQL service: MYSQL_DATABASE)
+    DB_USERNAME=          ← (from MySQL service: MYSQL_USER)
+    DB_PASSWORD=          ← (from MySQL service: MYSQL_PASSWORD)
+
+    SESSION_DRIVER=database
+    SESSION_DOMAIN=.up.railway.app
+    SESSION_SECURE_COOKIE=true
+    SESSION_SAME_SITE=none
+
+    SANCTUM_STATEFUL_DOMAINS=           ← (your frontend Railway URL, e.g., railynstore-frontend-production.up.railway.app)
+    CORS_ALLOWED_ORIGINS=               ← (your frontend Railway URL, e.g., https://railynstore-frontend-production.up.railway.app)
+
+    CACHE_STORE=file
+    QUEUE_CONNECTION=sync
+    LOG_CHANNEL=stderr
+
+    BCRYPT_ROUNDS=12
+
+   TIP — Using Railway Reference Variables (recommended):
+   Instead of copying MySQL values manually, use Railway's reference syntax:
+     DB_HOST=${{MySQL.MYSQLHOST}}
+     DB_PORT=${{MySQL.MYSQLPORT}}
+     DB_DATABASE=${{MySQL.MYSQLDATABASE}}
+     DB_USERNAME=${{MySQL.MYSQLUSER}}
+     DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+
+f) GENERATE APP_KEY:
+   Option A — Run locally:
+     cd store
+     php artisan key:generate --show
+   This will print something like: base64:xxxxxxxxxxxxxxx
+   Copy that entire string (including "base64:") and paste it as APP_KEY.
+
+   Option B — Use Railway's terminal (after first deploy):
+     Go to the backend service → click "Shell" tab
+     Run: php artisan key:generate --show
+
+g) Go to "Settings" → "Networking" and click "Generate Domain"
+   This gives you a public URL like:
+     https://railynstore-backend-production.up.railway.app
+
+   Copy this URL — this is your APP_URL. Update the APP_URL variable.
+
+
+STEP 12 — Deploy the React Frontend Service
+------------------------------------------------------------------------
+a) In your Railway project, click "+ New" → "GitHub Repo"
+b) Select the SAME "RailynStore" repository again
+c) Click on this new service → go to "Settings" tab:
+   - Set "Root Directory" to:    store-frontend
+   - Set "Builder" to:           Dockerfile
+
+d) Go to the "Variables" tab and add:
+
+    VITE_API_URL=https://railynstore-backend-production.up.railway.app
+    PORT=3000
+
+   (Use the actual backend URL from Step 11g)
+
+   IMPORTANT: Since VITE_API_URL is a build-time variable, you need to also
+   set it as a build argument. Go to Settings → Build → add Build Argument:
+     VITE_API_URL=https://railynstore-backend-production.up.railway.app
+
+e) Go to "Settings" → "Networking" and click "Generate Domain"
+   This gives you a URL like:
+     https://railynstore-frontend-production.up.railway.app
+
+
+STEP 13 — Update Backend Variables with Frontend URL
+------------------------------------------------------------------------
+Now that you have BOTH URLs, go back to the Backend service variables and update:
+
+    APP_URL=https://railynstore-backend-production.up.railway.app
+    SANCTUM_STATEFUL_DOMAINS=railynstore-frontend-production.up.railway.app
+    CORS_ALLOWED_ORIGINS=https://railynstore-frontend-production.up.railway.app
+    SESSION_DOMAIN=.up.railway.app
+
+   NOTE: SANCTUM_STATEFUL_DOMAINS should NOT include "https://", just the domain.
+   NOTE: SESSION_DOMAIN starts with a dot "." so cookies work across subdomains.
+
+
+================================================================================
+PART 4: HANDLE REACT ROUTER SPA ROUTING
+================================================================================
+
+STEP 14 — Fix client-side routing for the frontend
+------------------------------------------------------------------------
+React Router uses client-side routing, so refreshing on "/admin/products"
+would return a 404 from the static server. The "serve" package needs a config.
+
+Create file: store-frontend/serve.json
+
+    {
+      "rewrites": [
+        { "source": "/**", "destination": "/index.html" }
+      ]
+    }
+
+Then update the frontend Dockerfile to also copy this file:
+  In the production stage, after copying dist, add:
+
+    COPY --from=build /app/serve.json ./dist/serve.json
+
+And update the CMD to use it:
+
+    CMD ["sh", "-c", "serve -s dist -l ${PORT:-3000} -c ../serve.json"]
+
+  OR simpler — just put serve.json inside the public/ folder of store-frontend:
+
+Create file: store-frontend/public/serve.json  (instead)
+
+    {
+      "rewrites": [
+        { "source": "/**", "destination": "/index.html" }
+      ]
+    }
+
+  This way it gets copied to dist/ automatically during build.
+  Then use: CMD ["sh", "-c", "serve -s dist -l ${PORT:-3000}"]
+
+
+================================================================================
+PART 5: VERIFY & TROUBLESHOOT
+================================================================================
+
+STEP 15 — Trigger deployment
+------------------------------------------------------------------------
+a) After setting all variables, Railway auto-deploys from GitHub.
+b) If it doesn't, click "Deploy" on each service manually.
+c) Watch the build logs for each service for any errors.
+
+
+STEP 16 — Run database migrations and seeders
+------------------------------------------------------------------------
+The docker-entrypoint.sh script runs migrations automatically.
+If you need to run seeders manually:
+
+a) Go to Backend service in Railway
+b) Click the "Shell" tab (or use Railway CLI)
+c) Run:
+     php artisan migrate --force
+     php artisan db:seed --force
+
+
+STEP 17 — Test the deployment
+------------------------------------------------------------------------
+a) Open the FRONTEND URL in your browser:
+     https://railynstore-frontend-production.up.railway.app
+
+b) Try logging in with your credentials.
+
+c) If login fails, check:
+   - Backend logs (Railway → Backend service → "Logs" tab)
+   - CORS errors in browser console (F12 → Console)
+   - Make sure SANCTUM_STATEFUL_DOMAINS matches the frontend domain
+   - Make sure CORS_ALLOWED_ORIGINS matches the frontend URL exactly
+
+
+STEP 18 — Common troubleshooting
+------------------------------------------------------------------------
+
+ISSUE: "CORS error" in browser console
+FIX:   Make sure CORS_ALLOWED_ORIGINS includes the full frontend URL with https://
+       Make sure SANCTUM_STATEFUL_DOMAINS has the domain WITHOUT https://
+
+ISSUE: "419 CSRF token mismatch"
+FIX:   - SESSION_DOMAIN should be ".up.railway.app" (with leading dot)
+       - SESSION_SECURE_COOKIE should be "true"
+       - SESSION_SAME_SITE should be "none"
+       - SANCTUM_STATEFUL_DOMAINS must include your frontend domain
+
+ISSUE: "500 Server Error" on backend
+FIX:   - Check APP_KEY is set
+       - Check database credentials are correct
+       - Run: php artisan config:clear (in Railway shell)
+       - Check LOG_CHANNEL=stderr then view Railway logs
+
+ISSUE: "404 Not Found" when refreshing a page on frontend
+FIX:   Make sure serve.json with rewrites is in the dist folder (Step 14)
+
+ISSUE: Build fails on "npm run build" in Laravel backend
+FIX:   This builds Inertia assets. If you only use the separate React frontend,
+       you can remove the npm build step from the Dockerfile or create a 
+       minimal resources/js/app.tsx file.
+
+ISSUE: Images/uploads not persisting after redeploy
+FIX:   Railway containers are ephemeral. Use a cloud storage service 
+       (like AWS S3 or Cloudflare R2) for file uploads. Update FILESYSTEM_DISK
+       to "s3" and add the S3 credentials.
+
+
+================================================================================
+PART 6: CONTINUOUS DEPLOYMENT (AUTOMATIC)
+================================================================================
+
+STEP 19 — Auto-deploy on git push
+------------------------------------------------------------------------
+Railway automatically redeploys when you push to the connected GitHub branch.
+
+Your workflow:
+  1. Make code changes locally
+  2. git add .
+  3. git commit -m "your message"
+  4. git push
+
+Railway detects the push and rebuilds both services automatically.
+
+
+================================================================================
+PART 7: CUSTOM DOMAIN (OPTIONAL)
+================================================================================
+
+STEP 20 — Add your own domain
+------------------------------------------------------------------------
+a) In Railway, go to a service → Settings → Networking → Custom Domain
+b) Enter your domain (e.g., store.yourdomain.com)
+c) Railway will give you a CNAME record to add in your DNS provider
+d) Add the CNAME record in your domain registrar (GoDaddy, Namecheap, etc.)
+e) Wait for DNS propagation (usually 5-30 minutes)
+f) Update all environment variables to use your new domain:
+     - APP_URL
+     - CORS_ALLOWED_ORIGINS
+     - SANCTUM_STATEFUL_DOMAINS
+     - SESSION_DOMAIN
+
+
+================================================================================
+QUICK REFERENCE: FILES TO CREATE/MODIFY
+================================================================================
+
+  CREATE:
+    store/Dockerfile
+    store/docker-entrypoint.sh
+    store/.dockerignore
+    store-frontend/Dockerfile
+    store-frontend/.dockerignore
+    store-frontend/public/serve.json
+
+  MODIFY:
+    store-frontend/src/utils/axios.js       (add VITE_API_URL support)
+    store/config/cors.php                    (read from env variable)
+
+================================================================================
+ESTIMATED COST
+================================================================================
+
+Railway Pricing (as of 2026):
+  - Trial Plan: $5 free credit (no credit card needed)
+  - Hobby Plan: $5/month (includes $5 usage credit)
+  - Pro Plan:   $20/month (includes $10 usage credit)
+
+Typical usage for this app:
+  - MySQL:   ~$1-3/month (small database)
+  - Backend: ~$2-5/month (low traffic)
+  - Frontend:~$1-2/month (static files)
+  - Total:   ~$5-10/month on Hobby plan
+
+================================================================================
+END OF GUIDE
+================================================================================
