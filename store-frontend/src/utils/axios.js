@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// In production, VITE_API_URL points to the backend URL
+// In production, VITE_API_URL points to the backend URL (Railway/Hostinger)
 // In local dev, it's empty so Vite's proxy in vite.config.js handles /api requests
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
