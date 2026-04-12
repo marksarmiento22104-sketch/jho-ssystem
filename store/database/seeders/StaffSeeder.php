@@ -49,7 +49,7 @@ class StaffSeeder extends Seeder
         ];
 
         foreach ($staff as $member) {
-            User::create($member);
+            User::firstOrCreate(['email' => $member['email']], $member);
         }
     }
 }

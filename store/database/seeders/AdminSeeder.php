@@ -14,26 +14,23 @@ class AdminSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create admin accounts
-        User::create([
+        // Create admin accounts (firstOrCreate = safe to run multiple times)
+        User::firstOrCreate(['email' => 'admin1@store.com'], [
             'name' => 'Super Admin',
-            'email' => 'admin1@store.com',
             'password' => Hash::make('admin123'),
             'role' => 'admin',
             'is_active' => true,
         ]);
 
-        User::create([
+        User::firstOrCreate(['email' => 'admin2@store.com'], [
             'name' => 'Admin Manager',
-            'email' => 'admin2@store.com',
             'password' => Hash::make('admin123'),
             'role' => 'admin',
             'is_active' => true,
         ]);
 
-        User::create([
+        User::firstOrCreate(['email' => 'admin3@store.com'], [
             'name' => 'Assistant Admin',
-            'email' => 'admin3@store.com',
             'password' => Hash::make('admin123'),
             'role' => 'admin',
             'is_active' => false,
