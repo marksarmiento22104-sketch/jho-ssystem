@@ -258,10 +258,8 @@ c) Run these commands:
     git add .
     git commit -m "Initial commit - RailynStore"
     git branch -M main
-    git remote add origin https://github.com/YOUR_USERNAME/RailynStore.git
+    git remote add origin https://github.com/Jeyeeem/Jho-sSircnicko.git
     git push -u origin main
-
-   (Replace YOUR_USERNAME with your actual GitHub username)
 
    NOTE: If you already have a .git folder, skip "git init" and just do:
     git add .
@@ -301,7 +299,7 @@ e) You will see variables like:
 STEP 11 — Deploy the Laravel Backend Service
 ------------------------------------------------------------------------
 a) In your Railway project, click "+ New" → "GitHub Repo"
-b) Select your "RailynStore" repository
+b) Select your "Jho-sSircnicko" repository
 c) Railway will ask which folder to deploy. You need to configure it:
 
 d) Click on the new service → go to "Settings" tab:
@@ -367,7 +365,7 @@ g) Go to "Settings" → "Networking" and click "Generate Domain"
 STEP 12 — Deploy the React Frontend Service
 ------------------------------------------------------------------------
 a) In your Railway project, click "+ New" → "GitHub Repo"
-b) Select the SAME "RailynStore" repository again
+b) Select the SAME "Jho-sSircnicko" repository again
 c) Click on this new service → go to "Settings" tab:
    - Set "Root Directory" to:    store-frontend
    - Set "Builder" to:           Dockerfile

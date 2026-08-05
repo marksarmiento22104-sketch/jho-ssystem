@@ -75,13 +75,10 @@ Save. Done.
 STEP 5: PUSH TO GITHUB
 ================================================================================
 
-a) Go to https://github.com → click "+" → "New repository"
-   - Name: RailynStore
-   - Private: Yes
-   - Do NOT check "Add README"
-   - Click "Create repository"
+a) Use your existing GitHub repository:
+   - Repository: https://github.com/Jeyeeem/Jho-sSircnicko.git
 
-b) Open terminal/command prompt at: c:\laragon\www\RailynStore\railynStore
+b) Open terminal/command prompt at: c:\laragon\www\laravel_projects\Sia2\RailynStore\railynStore
 
 c) Type these commands one by one:
 
@@ -89,10 +86,8 @@ c) Type these commands one by one:
     git add .
     git commit -m "first commit"
     git branch -M main
-    git remote add origin https://github.com/YOUR_USERNAME/RailynStore.git
+    git remote add origin https://github.com/Jeyeeem/Jho-sSircnicko.git
     git push -u origin main
-
-   *** Replace YOUR_USERNAME with your GitHub username ***
 
 d) Refresh your GitHub page — you should see your files.
 
@@ -134,7 +129,7 @@ STEP 9: DEPLOY THE LARAVEL BACKEND
 ================================================================================
 
 a) Click "+ New" → "GitHub Repo"
-b) Find and select your "RailynStore" repo
+b) Find and select your "Jho-sSircnicko" repo
 c) Railway starts building — WAIT, it will fail. That's OK.
 
 d) Click on the service → "Settings" tab:
@@ -189,7 +184,7 @@ STEP 10: DEPLOY THE REACT FRONTEND
 ================================================================================
 
 a) Click "+ New" → "GitHub Repo"
-b) Select the SAME "RailynStore" repo again
+b) Select the SAME "Jho-sSircnicko" repo again
 
 c) Click on this NEW service → "Settings" tab:
    - Root Directory → type:  store-frontend
