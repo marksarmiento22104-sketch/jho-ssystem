@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Trust Railway proxies for HTTPS
+        $middleware->trustProxies(at: '*', headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR | 
+            \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST | 
+            \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT | 
+            \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
