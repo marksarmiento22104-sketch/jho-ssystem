@@ -1,0 +1,242 @@
+================================================================================
+        RAILWAY BACKEND ENVIRONMENT VARIABLES
+        Copy and paste these into Railway Backend Service
+================================================================================
+
+STEP 1: Add these variables in Railway Backend → Variables tab
+------------------------------------------------------------------------
+
+APP_NAME=RailynStore
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=base64:G1n98JwMGvufJGhMZ0lnJE0u+8xU5ksopmTL6lNz3fY=
+APP_URL=https://your-backend-url.railway.app
+
+DB_CONNECTION=mysql
+DB_HOST=${{MySQL.MYSQLHOST}}
+DB_PORT=${{MySQL.MYSQLPORT}}
+DB_DATABASE=${{MySQL.MYSQLDATABASE}}
+DB_USERNAME=${{MySQL.MYSQLUSER}}
+DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+SESSION_DOMAIN=.railway.app
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=none
+
+SANCTUM_STATEFUL_DOMAINS=your-frontend-url.railway.app
+CORS_ALLOWED_ORIGINS=https://your-frontend-url.railway.app
+
+LOG_CHANNEL=stderr
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+BCRYPT_ROUNDS=12
+
+FILESYSTEM_DISK=local
+BROADCAST_CONNECTION=log
+
+================================================================================
+STEP 2: After deployment, UPDATE these 3 variables
+------------------------------------------------------------------------
+
+After you deploy BACKEND and get its Railway URL:
+→ Update: APP_URL=https://your-actual-backend-url.railway.app
+
+After you deploy FRONTEND and get its Railway URL:
+→ Update: SANCTUM_STATEFUL_DOMAINS=your-actual-frontend-url.railway.app
+→ Update: CORS_ALLOWED_ORIGINS=https://your-actual-frontend-url.railway.app
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+1. APP_KEY
+   ✅ Already generated for you: base64:G1n98JwMGvufJGhMZ0lnJE0u+8xU5ksopmTL6lNz3fY=
+   → Copy this EXACTLY as shown
+
+2. DATABASE VARIABLES (DB_*)
+   ✅ Use Railway's reference syntax: ${{MySQL.MYSQLHOST}}
+   → Railway automatically fills these from your MySQL service
+   → Don't replace with actual values - Railway does this for you!
+
+3. APP_URL
+   ⚠️ Leave as placeholder first
+   → After backend deploys, Railway gives you a URL like:
+      https://railynstore-production-abc123.up.railway.app
+   → Come back and update APP_URL with that exact URL
+
+4. SANCTUM_STATEFUL_DOMAINS
+   ⚠️ Leave as placeholder first
+   ⚠️ Does NOT include "https://"
+   → After frontend deploys, you get a URL like:
+      https://railynstore-frontend-production-xyz789.up.railway.app
+   → Update to: railynstore-frontend-production-xyz789.up.railway.app
+   → (Remove the https:// part!)
+
+5. CORS_ALLOWED_ORIGINS
+   ⚠️ Leave as placeholder first
+   ✅ DOES include "https://"
+   → After frontend deploys, update to the FULL URL:
+      https://railynstore-frontend-production-xyz789.up.railway.app
+
+6. SESSION_DOMAIN
+   ✅ Already set correctly: .railway.app
+   ⚠️ Must start with a DOT (.)
+   → Don't change this!
+
+7. LOG_CHANNEL
+   ✅ Set to "stderr" for Railway
+   → Railway reads logs from stderr/stdout
+
+================================================================================
+COPY-PASTE TEMPLATE (Use this in Railway)
+================================================================================
+
+APP_NAME=RailynStore
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=base64:G1n98JwMGvufJGhMZ0lnJE0u+8xU5ksopmTL6lNz3fY=
+APP_URL=https://your-backend-url.railway.app
+DB_CONNECTION=mysql
+DB_HOST=${{MySQL.MYSQLHOST}}
+DB_PORT=${{MySQL.MYSQLPORT}}
+DB_DATABASE=${{MySQL.MYSQLDATABASE}}
+DB_USERNAME=${{MySQL.MYSQLUSER}}
+DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+SESSION_DOMAIN=.railway.app
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=none
+SANCTUM_STATEFUL_DOMAINS=your-frontend-url.railway.app
+CORS_ALLOWED_ORIGINS=https://your-frontend-url.railway.app
+LOG_CHANNEL=stderr
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+BCRYPT_ROUNDS=12
+FILESYSTEM_DISK=local
+BROADCAST_CONNECTION=log
+
+================================================================================
+HOW TO ADD VARIABLES IN RAILWAY
+================================================================================
+
+Method 1: One by One (Easier)
+------------------------------------------------------------------------
+1. Go to your Backend service in Railway
+2. Click "Variables" tab
+3. Click "New Variable"
+4. Add each variable:
+   - Name: APP_NAME
+   - Value: RailynStore
+5. Click "Add"
+6. Repeat for all variables
+
+Method 2: Raw Editor (Faster)
+------------------------------------------------------------------------
+1. Go to your Backend service in Railway
+2. Click "Variables" tab
+3. Click "RAW Editor" button
+4. Paste all variables at once (from template above)
+5. Click "Update Variables"
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+After adding variables, verify:
+
+✅ APP_KEY is set (should be base64:...)
+✅ All DB_* variables use ${{MySQL.*}} syntax
+✅ SESSION_DOMAIN starts with a dot: .railway.app
+✅ SESSION_SECURE_COOKIE=true
+✅ SESSION_SAME_SITE=none
+✅ LOG_CHANNEL=stderr
+✅ CACHE_STORE=file
+
+After getting URLs:
+✅ APP_URL has your backend Railway URL
+✅ SANCTUM_STATEFUL_DOMAINS has frontend domain (no https://)
+✅ CORS_ALLOWED_ORIGINS has frontend URL (with https://)
+
+================================================================================
+EXAMPLE WITH ACTUAL URLS (After deployment)
+================================================================================
+
+Suppose Railway gives you:
+- Backend URL:  https://railynstore-production-abc123.up.railway.app
+- Frontend URL: https://railynstore-frontend-xyz789.up.railway.app
+
+Then update these 3 variables:
+
+APP_URL=https://railynstore-production-abc123.up.railway.app
+SANCTUM_STATEFUL_DOMAINS=railynstore-frontend-xyz789.up.railway.app
+CORS_ALLOWED_ORIGINS=https://railynstore-frontend-xyz789.up.railway.app
+
+Notice:
+- APP_URL: full URL with https://
+- SANCTUM: domain only, NO https://
+- CORS: full URL with https://
+
+================================================================================
+COMMON MISTAKES TO AVOID
+================================================================================
+
+❌ DON'T manually replace ${{MySQL.MYSQLHOST}} with actual values
+   ✅ Leave it as ${{MySQL.MYSQLHOST}} - Railway fills this automatically
+
+❌ DON'T put https:// in SANCTUM_STATEFUL_DOMAINS
+   ✅ Use only the domain: frontend-url.railway.app
+
+❌ DON'T forget https:// in CORS_ALLOWED_ORIGINS
+   ✅ Use full URL: https://frontend-url.railway.app
+
+❌ DON'T forget the DOT in SESSION_DOMAIN
+   ✅ Must be: .railway.app (with the dot in front)
+
+❌ DON'T use APP_DEBUG=true in production
+   ✅ Keep it false for security
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Issue: "No application encryption key has been specified"
+Fix: Make sure APP_KEY is set correctly with the base64: prefix
+
+Issue: "SQLSTATE[HY000] [2002] Connection refused"
+Fix: Check DB_* variables are using ${{MySQL.*}} syntax
+
+Issue: "CORS policy error" in browser console
+Fix: Make sure CORS_ALLOWED_ORIGINS includes https://
+
+Issue: "419 CSRF token mismatch"
+Fix: Check these 3:
+  - SESSION_DOMAIN=.railway.app (with dot!)
+  - SESSION_SECURE_COOKIE=true
+  - SESSION_SAME_SITE=none
+
+Issue: "401 Unauthorized" on login
+Fix: Make sure SANCTUM_STATEFUL_DOMAINS matches frontend domain (no https://)
+
+================================================================================
+YOUR SPECIFIC APP_KEY (GENERATED)
+================================================================================
+
+base64:G1n98JwMGvufJGhMZ0lnJE0u+8xU5ksopmTL6lNz3fY=
+
+⚠️ IMPORTANT: Keep this secret! This is your encryption key.
+⚠️ Don't share this publicly or commit it to Git.
+
+================================================================================
+READY TO USE!
+================================================================================
+
+1. Copy the variables from the "COPY-PASTE TEMPLATE" section above
+2. Go to Railway → Your Backend Service → Variables tab
+3. Paste them in (use RAW Editor for fastest method)
+4. Deploy!
+5. After deployment, update the 3 URL-related variables
+
+================================================================================
