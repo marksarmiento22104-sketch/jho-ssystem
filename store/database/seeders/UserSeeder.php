@@ -13,10 +13,53 @@ class UserSeeder extends Seeder
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
+        // Create accounts with known password: "password123"
         DB::table('users')->insertOrIgnore([
-            ['id' => 1, 'name' => 'Jholand H. Galicia', 'email' => 'jholand123@gmail.com', 'role' => 'admin', 'is_active' => 1, 'email_verified_at' => null, 'password' => '$2y$12$cwmQISOV9hipHXPQr1dCFuDdZIMgBM8Icr/rmawPg0WvIUJRdQ/QS', 'two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null, 'remember_token' => null, 'created_at' => '2025-11-05 23:51:23', 'updated_at' => '2025-11-21 03:30:17'],
-            ['id' => 9, 'name' => 'staff', 'email' => 'staff@gmail.com', 'role' => 'staff', 'is_active' => 1, 'email_verified_at' => null, 'password' => '$2y$12$RUN.CN5tCCsi8Nw0qgtyOeOtvZZ3UvMiaJYe4MPQFRnDrYqgGqmdm', 'two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null, 'remember_token' => null, 'created_at' => '2025-11-19 17:52:48', 'updated_at' => '2025-11-20 14:20:17'],
-            ['id' => 11, 'name' => 'admin', 'email' => 'admin@gmail.com', 'role' => 'admin', 'is_active' => 1, 'email_verified_at' => null, 'password' => '$2y$12$ENX1jJacVeLiOkUpyoqqpOl/lvvyFazRrXQbs7NGBWNYZLpUOUj0O', 'two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null, 'remember_token' => null, 'created_at' => '2025-11-21 00:36:18', 'updated_at' => '2025-11-27 13:51:27']
+            [
+                'id' => 1, 
+                'name' => 'Jholand H. Galicia', 
+                'email' => 'jholand123@gmail.com', 
+                'role' => 'admin', 
+                'is_active' => 1, 
+                'email_verified_at' => null, 
+                'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                'two_factor_secret' => null, 
+                'two_factor_recovery_codes' => null, 
+                'two_factor_confirmed_at' => null, 
+                'remember_token' => null, 
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'id' => 9, 
+                'name' => 'Staff User', 
+                'email' => 'staff@gmail.com', 
+                'role' => 'staff', 
+                'is_active' => 1, 
+                'email_verified_at' => null, 
+                'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                'two_factor_secret' => null, 
+                'two_factor_recovery_codes' => null, 
+                'two_factor_confirmed_at' => null, 
+                'remember_token' => null, 
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'id' => 11, 
+                'name' => 'Admin User', 
+                'email' => 'admin@gmail.com', 
+                'role' => 'admin', 
+                'is_active' => 1, 
+                'email_verified_at' => null, 
+                'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                'two_factor_secret' => null, 
+                'two_factor_recovery_codes' => null, 
+                'two_factor_confirmed_at' => null, 
+                'remember_token' => null, 
+                'created_at' => now(), 
+                'updated_at' => now()
+            ]
         ]);
 
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
