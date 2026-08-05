@@ -11,7 +11,8 @@ class UserSeeder extends Seeder
     {
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
-        // Always ensure railway admin exists with known password
+        // Always ensure railway admin exists with known password: password123
+        // Hash tested and verified locally: ✓ WORKS
         DB::table('users')->updateOrInsert(
             ['email' => 'railway@admin.com'],
             [
@@ -19,7 +20,7 @@ class UserSeeder extends Seeder
                 'email' => 'railway@admin.com',
                 'role' => 'admin',
                 'is_active' => 1,
-                'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                'password' => '$2y$12$aJ41ya8RJxJAwqFfKC0wZegAm3wvOnx.P6N8OTtN/MbuN6BNu5q52', // password123 - VERIFIED
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
@@ -35,7 +36,7 @@ class UserSeeder extends Seeder
                     'role' => 'admin', 
                     'is_active' => 1, 
                     'email_verified_at' => null, 
-                    'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                    'password' => '$2y$12$aJ41ya8RJxJAwqFfKC0wZegAm3wvOnx.P6N8OTtN/MbuN6BNu5q52', // password123 - VERIFIED
                     'two_factor_secret' => null, 
                     'two_factor_recovery_codes' => null, 
                     'two_factor_confirmed_at' => null, 
@@ -50,7 +51,7 @@ class UserSeeder extends Seeder
                     'role' => 'staff', 
                     'is_active' => 1, 
                     'email_verified_at' => null, 
-                    'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                    'password' => '$2y$12$aJ41ya8RJxJAwqFfKC0wZegAm3wvOnx.P6N8OTtN/MbuN6BNu5q52', // password123 - VERIFIED
                     'two_factor_secret' => null, 
                     'two_factor_recovery_codes' => null, 
                     'two_factor_confirmed_at' => null, 
@@ -65,7 +66,7 @@ class UserSeeder extends Seeder
                     'role' => 'admin', 
                     'is_active' => 1, 
                     'email_verified_at' => null, 
-                    'password' => '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LvKKxOaL7.YmDxnui', // password123
+                    'password' => '$2y$12$aJ41ya8RJxJAwqFfKC0wZegAm3wvOnx.P6N8OTtN/MbuN6BNu5q52', // password123 - VERIFIED
                     'two_factor_secret' => null, 
                     'two_factor_recovery_codes' => null, 
                     'two_factor_confirmed_at' => null, 
