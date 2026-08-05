@@ -117,6 +117,7 @@ QUEUE_CONNECTION=sync
 BCRYPT_ROUNDS=12
 FILESYSTEM_DISK=local
 BROADCAST_CONNECTION=log
+ASSET_URL=https://jho-ssystem-production.up.railway.app
 
 ================================================================================
 HOW TO ADD VARIABLES IN RAILWAY
